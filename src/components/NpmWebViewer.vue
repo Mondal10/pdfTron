@@ -71,6 +71,7 @@ watch(isWebViewerCoreReady, (currentVal) => {
 
         // Load your document
         const pdfUrl = "https://pdftron.s3.amazonaws.com/downloads/pl/demo-annotated.pdf";
+        // const pdfUrl = "/sample.pdf";
         try {
             documentViewer.loadDocument(pdfUrl, { l: null });
         } catch (error) {
@@ -84,9 +85,9 @@ watch(isWebViewerCoreReady, (currentVal) => {
 
             // Custom Annotation pdf
             const rectangle = new Core.Annotations.RectangleAnnotation();
-            rectangle.PageNumber = 1;
-            rectangle.X = 10;
-            rectangle.Y = 150;
+            rectangle.PageNumber = 2;
+            rectangle.X = 100;
+            rectangle.Y = 400;
             rectangle.Width = 235;
             rectangle.Height = 200;
             rectangle.FillColor = new Core.Annotations.Color(0, 0, 0);
@@ -119,7 +120,12 @@ watch(isWebViewerCoreReady, (currentVal) => {
                 });
 
                 const base64data = reader.result;
-                await annot.setImageData(base64data); // Base64 URL or SVG
+                await annot.setImageData(base64data, { keepAsSVG: true }); // Base64 URL or SVG, default is png
+                // annot.IsHoverable = true;
+                // annot.addEventListener('mouseover', () => {
+                //     console.log('annot HOVERED');
+
+                // })
 
                 documentViewer.getAnnotationManager().addAnnotation(annot);
                 documentViewer.getAnnotationManager().redrawAnnotation(annot);
