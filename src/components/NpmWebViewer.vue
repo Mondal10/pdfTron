@@ -126,7 +126,8 @@ watch(isWebViewerCoreReady, (currentVal) => {
                 //     console.log('annot HOVERED');
 
                 // })
-
+                // annot.NoZoom = true;
+                // console.log('zoom', annot.NoZoom)
                 documentViewer.getAnnotationManager().addAnnotation(annot);
                 documentViewer.getAnnotationManager().redrawAnnotation(annot);
             }
