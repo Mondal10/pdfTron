@@ -15,6 +15,8 @@
             <button @click="redoHandler">redo</button>
             <button @click="exportAnnotations">export annotations</button>
             <button @click="importAnnotations">import annotations</button>
+            <button @click="customIconAnnotation" :disabled="!hasDocumentLoaded">add custom icon</button>
+            <button @click="createStamp" :disabled="!hasDocumentLoaded">upload stamp</button>
         </div>
         <div id="scroll-view" ref="scrollViewElem">
             <div v-if="!hasDocumentLoaded">
@@ -78,61 +80,48 @@ watch(isWebViewerCoreReady, (currentVal) => {
             console.log('ERROR:::', error)
         }
         documentViewer.enableAnnotations();
+        Core.Annotations.SelectionModel.defaultNoPermissionSelectionOutlineColor = new Core.Annotations.Color(
+            65,
+            140,
+            252,
+            1
+        );
+        Core.Annotations.SelectionModel.selectionOutlineThickness = 2;
         documentViewer.addEventListener('documentLoaded', async () => {
             // call methods relating to the loaded document
             console.log('PDF LOADED:::');
             hasDocumentLoaded.value = true;
-
-            // Custom Annotation pdf
-            const rectangle = new Core.Annotations.RectangleAnnotation();
-            rectangle.PageNumber = 2;
-            rectangle.X = 100;
-            rectangle.Y = 400;
-            rectangle.Width = 235;
-            rectangle.Height = 200;
-            rectangle.FillColor = new Core.Annotations.Color(0, 0, 0);
-
-            // note that if you are adding multiple appearances you should make sure they have unique file names
-            const doc = await Core.createDocument('https://pdftron.s3.amazonaws.com/downloads/pl/tiger.pdf', {
-                useDownloader: false,
-                filename: 'tiger.pdf'
-            });
-
-            rectangle.addCustomAppearance(doc, { pageNumber: 1 });
-
-            documentViewer.getAnnotationManager().addAnnotation(rectangle);
-            documentViewer.getAnnotationManager().redrawAnnotation(rectangle);
         });
 
         /* Custom StampAnnotation svg */
-        documentViewer.addEventListener('annotationsLoaded', async () => {
-            const res = await fetch('/vite.svg'); // Include custom headers as necessary
+        // documentViewer.addEventListener('annotationsLoaded', async () => {
+        //     const res = await fetch('/vite.svg'); // Include custom headers as necessary
 
-            const imageBlob = await res.blob();
-            const reader = new FileReader();
-            reader.onloadend = async () => {
-                const annot = new Core.Annotations.StampAnnotation({
-                    PageNumber: 1,
-                    X: 100,
-                    Y: 400,
-                    Width: 40,
-                    Height: 40,
-                });
+        //     const imageBlob = await res.blob();
+        //     const reader = new FileReader();
+        //     reader.onloadend = async () => {
+        //         const annot = new Core.Annotations.StampAnnotation({
+        //             PageNumber: 1,
+        //             X: 100,
+        //             Y: 400,
+        //             Width: 40,
+        //             Height: 40,
+        //         });
 
-                const base64data = reader.result;
-                await annot.setImageData(base64data, { keepAsSVG: true }); // Base64 URL or SVG, default is png
-                // annot.IsHoverable = true;
-                // annot.addEventListener('mouseover', () => {
-                //     console.log('annot HOVERED');
+        //         const base64data = reader.result;
+        //         await annot.setImageData(base64data, { keepAsSVG: true }); // Base64 URL or SVG, default is png
+        //         // annot.IsHoverable = true;
+        //         // annot.addEventListener('mouseover', () => {
+        //         //     console.log('annot HOVERED');
 
-                // })
-                // annot.NoZoom = true;
-                // console.log('zoom', annot.NoZoom)
-                documentViewer.getAnnotationManager().addAnnotation(annot);
-                documentViewer.getAnnotationManager().redrawAnnotation(annot);
-            }
-            reader.readAsDataURL(imageBlob);
-        });
+        //         // })
+        //         // annot.NoZoom = true;
+        //         // console.log('zoom', annot.NoZoom)
+        //         documentViewer.getAnnotationManager().addAnnotation(annot);
+        //         documentViewer.getAnnotationManager().redrawAnnotation(annot);
+        //     }
+        //     reader.readAsDataURL(imageBlob);
+        // });
 
         documentViewerInstance.value = documentViewer;
     }
@@ -170,6 +159,8 @@ const {
     redoHandler,
     exportAnnotations,
     importAnnotations,
+    customIconAnnotation,
+    createStamp,
 } = useDocViewer(documentViewerInstance);
 
 </script>

@@ -100,6 +100,38 @@ export default function useDocViewer(documentViewerInstance) {
     annotationHistory.redo();
   };
 
+  const customIconAnnotation = async () => {
+    const res = await fetch('/vite.svg'); // Include custom headers as necessary
+    const imageBlob = await res.blob();
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const annot = new Core.Annotations.StampAnnotation({
+        PageNumber: documentViewerInstance.value.getCurrentPage(),
+        X: 100,
+        Y: 400,
+        Width: 40,
+        Height: 40,
+      });
+
+      const base64data = reader.result;
+      await annot.setImageData(base64data, { keepAsSVG: true }); // Base64 URL or SVG, default is png
+      annot.NoResize = true;
+      annot.NoZoom = true;
+      annot.NoRotate = true;
+      documentViewerInstance.value.getAnnotationManager().addAnnotation(annot);
+      documentViewerInstance.value
+        .getAnnotationManager()
+        .redrawAnnotation(annot);
+    };
+    reader.readAsDataURL(imageBlob);
+  };
+
+  const createStamp = () => {
+    documentViewerInstance.value.setToolMode(
+      documentViewerInstance.value.getTool(window.Core.Tools.ToolNames.STAMP)
+    );
+  };
+
   return {
     zoomOut,
     zoomIn,
@@ -112,5 +144,7 @@ export default function useDocViewer(documentViewerInstance) {
     redoHandler,
     exportAnnotations,
     importAnnotations,
+    customIconAnnotation,
+    createStamp,
   };
 }
