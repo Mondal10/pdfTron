@@ -1,7 +1,6 @@
 <script setup>
 import { ref } from 'vue';
 import CustomWebViewer from './components/CustomWebViewer.vue';
-// import HelloWorld from './components/HelloWorld.vue';
 import NpmWebViewer from './components/NpmWebViewer.vue';
 
 const showIcons = ref(false);
@@ -13,7 +12,7 @@ const showNpmWebViewer = ref(false);
 <template>
   <!-- <button @click="() => showIcons = !showIcons">{{ showIcons ? 'Hide' : 'Show' }} Icons</button> -->
   <!-- <button @click="() => showCustomWebViewer = !showCustomWebViewer">{{ showCustomWebViewer ? 'Hide' : 'Show' }}
-        CustomWebViewer</button> -->
+          CustomWebViewer</button> -->
   <button @click="() => showNpmWebViewer = !showNpmWebViewer">{{ showNpmWebViewer ? 'Hide' : 'Show' }}
     NPM customWebViewer</button>
   <div v-if="showIcons">
@@ -24,7 +23,6 @@ const showNpmWebViewer = ref(false);
       <img src="/vue.svg" class="logo vue" alt="Vue logo" />
     </a>
   </div>
-  <!-- <HelloWorld msg="Vite + Vue" />  -->
   <hr>
   <CustomWebViewer v-if="showCustomWebViewer" />
   <NpmWebViewer v-if="showNpmWebViewer" />

@@ -4,7 +4,6 @@
         <div id="header">
             <button id="zoom-out-button" @click="zoomOut" :disabled="!hasDocumentLoaded">🔍 zoom out</button>
             <button id="zoom-in-button" @click="zoomIn" :disabled="!hasDocumentLoaded">🔍 zoom in</button>
-            <!-- <input type="color" name="colorpicker" :value="color" @change="colorPickerHandler"> -->
             <button id="create-rectangle" @click="createRectangle" :disabled="!hasDocumentLoaded">☐ Rectangle</button>
             <button id="set-color" @click="setCustomStyleAnnotation" :disabled="!hasDocumentLoaded">
                 setCustomStyle</button>
@@ -16,13 +15,24 @@
             <button @click="exportAnnotations">export annotations</button>
             <button @click="importAnnotations">import annotations</button>
             <button @click="customIconAnnotation" :disabled="!hasDocumentLoaded">add custom icon</button>
-            <button @click="createStamp" :disabled="!hasDocumentLoaded">upload stamp</button>
+            <button @click="customStampTool"> custom stamp tool</button>
+            <button @click="deleteSelectedAnnotations">delete selected annotations</button>
+            <button @click="generateThumbnail">generate thumbnail</button>
+        </div>
+        <div v-if="loadingErrMsg" class="error-section">
+            {{ loadingErrMsg }}
         </div>
         <div id="scroll-view" ref="scrollViewElem">
             <div v-if="!hasDocumentLoaded">
                 Loading...
             </div>
             <div id="viewer" ref="viewerElem"></div>
+            <!-- Comments section -->
+            <div v-if="false" id="comment-section">
+                <div class="comment-card">comment1</div>
+                <div class="comment-card">comment2</div>
+                <div class="comment-card">comment3</div>
+            </div>
         </div>
     </div>
 </template>
@@ -31,9 +41,11 @@
 // import webViewerCore from '@pdftron/webviewer/public/core/webviewer-core.min';
 import { onMounted, onUnmounted, ref, watch } from 'vue';
 import useDocViewer from '../composables/useDocViewer';
+import throttle from 'lodash.throttle';
 
 const isWebViewerCoreReady = ref(false);
 const hasDocumentLoaded = ref(false);
+const loadingErrMsg = ref('');
 const documentViewerInstance = ref(null);
 const scrollViewElem = ref(null);
 const viewerElem = ref(null);
@@ -44,6 +56,7 @@ onMounted(async () => {
         window?.Core && (isWebViewerCoreReady.value = true);
         if (!window?.Core) {
             await import('@pdftron/webviewer/public/core/webviewer-core.min');
+            // await import { getInstance } from '@pdftron/webviewer'
             // console.log('webViewerCore::', window.Core);
             Core.setWorkerPath('/webviewer/core');
             // Todo: Find a better way as this will not work for prod-build
@@ -72,16 +85,17 @@ watch(isWebViewerCoreReady, (currentVal) => {
         documentViewer.setViewerElement(viewerElem.value);
 
         // Load your document
+        // const pdfUrl = "https://pdftron.s3.amazonaws.com/downloads/pl/demo.pdf";
         const pdfUrl = "https://pdftron.s3.amazonaws.com/downloads/pl/demo-annotated.pdf";
         // const pdfUrl = "/sample.pdf";
-        try {
-            documentViewer.loadDocument(pdfUrl, { l: null });
-        } catch (error) {
-            console.log('ERROR:::', error)
-        }
+        documentViewer.loadDocument(pdfUrl, {
+            l: null, onError: (err) => {
+                loadingErrMsg.value = err.message ?? err;
+            }
+        });
         documentViewer.enableAnnotations();
-        Core.Annotations.SelectionModel.defaultNoPermissionSelectionOutlineColor = new Core.Annotations.Color(
-            65,
+        Core.Annotations.SelectionModel.defaultSelectionOutlineColor = new Core.Annotations.Color(
+            165,
             140,
             252,
             1
@@ -93,59 +107,42 @@ watch(isWebViewerCoreReady, (currentVal) => {
             hasDocumentLoaded.value = true;
         });
 
-        /* Custom StampAnnotation svg */
-        // documentViewer.addEventListener('annotationsLoaded', async () => {
-        //     const res = await fetch('/vite.svg'); // Include custom headers as necessary
+        // Normal left click
+        documentViewer.addEventListener('click', (event) => {
+            console.log('Clicked', event)
+        })
+        // Double click
+        documentViewer.addEventListener('dblClick', (event) => {
+            console.log('DoubleClicked', event)
+        })
+        // mouse right up
+        documentViewer.addEventListener('mouseRightUp', (event) => {
+            console.log('Mouse right up event', event);
+        });
+        // native right click
+        viewerElem.value.addEventListener('contextmenu', (event) => {
+            event.preventDefault();
+            const annot = documentViewer.getAnnotationManager().getAnnotationByMouseEvent(event);
+            console.log('native contextmenu::', annot, event);
+        })
 
-        //     const imageBlob = await res.blob();
-        //     const reader = new FileReader();
-        //     reader.onloadend = async () => {
-        //         const annot = new Core.Annotations.StampAnnotation({
-        //             PageNumber: 1,
-        //             X: 100,
-        //             Y: 400,
-        //             Width: 40,
-        //             Height: 40,
-        //         });
 
-        //         const base64data = reader.result;
-        //         await annot.setImageData(base64data, { keepAsSVG: true }); // Base64 URL or SVG, default is png
-        //         // annot.IsHoverable = true;
-        //         // annot.addEventListener('mouseover', () => {
-        //         //     console.log('annot HOVERED');
-
-        //         // })
-        //         // annot.NoZoom = true;
-        //         // console.log('zoom', annot.NoZoom)
-        //         documentViewer.getAnnotationManager().addAnnotation(annot);
-        //         documentViewer.getAnnotationManager().redrawAnnotation(annot);
-        //     }
-        //     reader.readAsDataURL(imageBlob);
-        // });
+        // documentViewer.addEventListener(
+        viewerElem.value.addEventListener(
+            "mousemove",
+            throttle(evt => {
+                const annot = documentViewer.getAnnotationManager().getAnnotationByMouseEvent(evt);
+                if (annot) {
+                    console.log(annot, annot, evt)
+                } else {
+                    // Core.offHover(evt);
+                }
+            }, 700)
+        );
 
         documentViewerInstance.value = documentViewer;
     }
 });
-
-// const colorPickerHandler = (event) => {
-//     color.value = event.target.value;
-//     // console.log(window.Core.getAllAnnotations())
-//     console.log('Color selected', color.value);
-
-//     // const test = new Core.Annotations.MarkupAnnotation();
-//     // console.log(test.Color, test.FillColor, test.StrokeColor);
-//     // test.StrokeColor = new Core.Annotations.Color(255, 99, 71, 0.5);
-//     // console.log('updated color', test.StrokeColor)
-
-//     /******/
-//     // const tool = new Core.Tools.Tool(documentViewerInstance.value);
-//     // console.log('tool', tool);
-//     // tool.setStyles({
-//     //     'StrokeColor': 'red',
-//     // })
-// }
-
-// const
 
 const {
     zoomOut,
@@ -160,7 +157,9 @@ const {
     exportAnnotations,
     importAnnotations,
     customIconAnnotation,
-    createStamp,
+    deleteSelectedAnnotations,
+    customStampTool,
+    generateThumbnail
 } = useDocViewer(documentViewerInstance);
 
 </script>
@@ -177,6 +176,7 @@ const {
 }
 
 #scroll-view {
+    display: flex;
     bottom: 0;
     height: 500px;
     width: 100%;
@@ -187,5 +187,26 @@ const {
 #viewer {
     /* border: 1px solid red; */
     margin: auto;
+}
+
+#comment-section {
+    padding: 10px;
+    width: 30%
+}
+
+.comment-card {
+    background-color: white;
+    color: black;
+    padding: 10px;
+    border-radius: 1rem;
+    margin-bottom: 4px;
+    position: relative;
+    top: 328px;
+    /* left: 36px; */
+}
+
+.error-section {
+    color: tomato;
+    text-align: center;
 }
 </style>

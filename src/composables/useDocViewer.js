@@ -14,17 +14,18 @@ export default function useDocViewer(documentViewerInstance) {
   };
 
   const createRectangle = () => {
-    documentViewerInstance.value.setToolMode(
-      documentViewerInstance.value.getTool(
-        window.Core.Tools.ToolNames.RECTANGLE
-      )
+    const rectTool = documentViewerInstance.value.getTool(
+      window.Core.Tools.ToolNames.RECTANGLE
     );
+    rectTool.setStyles({
+      StrokeColor: new Core.Annotations.Color(66, 184, 131, 1),
+      StrokeThickness: 5,
+    });
+    documentViewerInstance.value.setToolMode(rectTool);
     console.log(
-      'getToolModeMap',
-      documentViewerInstance.value.getToolModeMap(),
-      documentViewerInstance.value.getTool(
-        window.Core.Tools.ToolNames.RECTANGLE
-      )
+      window.Core.Tools.ToolNames.RECTANGLE,
+      // documentViewerInstance.value.getToolModeMap(),
+      rectTool
     );
   };
 
@@ -73,10 +74,15 @@ export default function useDocViewer(documentViewerInstance) {
     );
   };
 
-  const selectTool = () => {
-    documentViewerInstance.value.setToolMode(
-      documentViewerInstance.value.getTool(window.Core.Tools.ToolNames.EDIT)
+  const selectTool = (e) => {
+    e.preventDefault();
+    const editTool = documentViewerInstance.value.getTool(
+      window.Core.Tools.ToolNames.EDIT
     );
+    // editTool.cursor = 'crosshair';
+    editTool.contextMenu(e);
+    console.log(e, window.Core.Tools.ToolNames.EDIT, editTool);
+    documentViewerInstance.value.setToolMode(editTool);
   };
 
   const selectedAnnotations = () => {
@@ -109,15 +115,39 @@ export default function useDocViewer(documentViewerInstance) {
         PageNumber: documentViewerInstance.value.getCurrentPage(),
         X: 100,
         Y: 400,
-        Width: 40,
-        Height: 40,
+        Width: 25,
+        Height: 25,
       });
+      annot.cursor = 'crosshair';
+
+      console.log('stamp', annot);
 
       const base64data = reader.result;
       await annot.setImageData(base64data, { keepAsSVG: true }); // Base64 URL or SVG, default is png
-      annot.NoResize = true;
       annot.NoZoom = true;
       annot.NoRotate = true;
+      annot.disableRotationControl();
+      console.log('annot', annot);
+      // annot.NoResize = true;
+      // annot.Locked = true; // No rotate does not work
+      // annot.NoMove = false;
+
+      // documentViewerInstance.value.on('click', (event) => {
+      //   // Todo: Refactor later
+      //   // const viewerElem = document.getElementById('viewer');
+      //   // annot.X = event.x - viewerElem.offsetLeft;
+      //   // annot.Y = event.y - viewerElem.offsetTop;
+      //   annot.X = event.x;
+      //   annot.Y = event.y;
+      //   documentViewerInstance.value
+      //     .getAnnotationManager()
+      //     .addAnnotation(annot);
+      //   // console.log('CLICKED', event, annot.getMouseLocation(event));
+      //   documentViewerInstance.value
+      //     .getAnnotationManager()
+      //     .redrawAnnotation(annot);
+      // });
+
       documentViewerInstance.value.getAnnotationManager().addAnnotation(annot);
       documentViewerInstance.value
         .getAnnotationManager()
@@ -126,10 +156,30 @@ export default function useDocViewer(documentViewerInstance) {
     reader.readAsDataURL(imageBlob);
   };
 
-  const createStamp = () => {
-    documentViewerInstance.value.setToolMode(
-      documentViewerInstance.value.getTool(window.Core.Tools.ToolNames.STAMP)
+  const deleteSelectedAnnotations = () => {
+    const annotationManager =
+      documentViewerInstance.value.getAnnotationManager();
+    annotationManager.deleteAnnotation(selectedAnnotations());
+  };
+
+  // Dummy
+  const customStampTool = (e) => {
+    console.clear();
+    console.log('SELECTED ANNOTATIONS', selectedAnnotations());
+    const stampTool = new Core.Tools.StampCreateTool(
+      documentViewerInstance.value
     );
+    stampTool.ACCEPTED_IMAGE_TYPES = 'svg';
+    console.log('customStampTool', stampTool, e, stampTool.getMouseLocation(e));
+  };
+
+  const generateThumbnail = () => {
+    const doc = documentViewerInstance.value.getDocument();
+    const pageNum = documentViewerInstance.value.getCurrentPage();
+    doc.loadThumbnail(pageNum, (thumbnail) => {
+      // thumbnail is a HTMLCanvasElement or HTMLImageElement
+      console.log(`Thumbnail generated for page ${pageNum}`, thumbnail);
+    });
   };
 
   return {
@@ -145,6 +195,8 @@ export default function useDocViewer(documentViewerInstance) {
     exportAnnotations,
     importAnnotations,
     customIconAnnotation,
-    createStamp,
+    deleteSelectedAnnotations,
+    customStampTool,
+    generateThumbnail,
   };
 }
