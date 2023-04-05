@@ -9,37 +9,45 @@
                 setCustomStyle</button>
             <button id="create-ellipse" @click="createEllipse" :disabled="!hasDocumentLoaded">Ellipse</button>
             <button id="create-line" @click="createLine" :disabled="!hasDocumentLoaded">Line</button>
+            <button @click="createHighlight" :disabled="!hasDocumentLoaded">Highlight Text</button>
             <button id="select" @click="selectTool" :disabled="!hasDocumentLoaded">🤚 Select</button>
             <button @click="undoHandler">undo</button>
             <button @click="redoHandler">redo</button>
             <button @click="exportAnnotations">export annotations</button>
             <button @click="importAnnotations">import annotations</button>
-            <button @click="customIconAnnotation" :disabled="!hasDocumentLoaded">add custom icon</button>
-            <button @click="customStampTool"> custom stamp tool</button>
+            <button @click="customStampTool" :disabled="!hasDocumentLoaded"> custom stamp tool</button>
             <button @click="deleteSelectedAnnotations">delete selected annotations</button>
-            <button @click="generateThumbnail">generate thumbnail</button>
+            <button @click="generateThumbnail" :disabled="!hasDocumentLoaded">generate thumbnail</button>
+            <button @click="measureDistanceTool" :disabled="!hasDocumentLoaded">measure distance</button>
+            <button @click="calibrateDistance" :disabled="!hasDocumentLoaded">calibrate distance</button>
         </div>
         <div v-if="loadingErrMsg" class="error-section">
             {{ loadingErrMsg }}
         </div>
-        <div id="scroll-view" ref="scrollViewElem">
-            <div v-if="!hasDocumentLoaded">
-                Loading...
-            </div>
-            <div id="viewer" ref="viewerElem"></div>
-            <!-- Comments section -->
-            <div v-if="false" id="comment-section">
-                <div class="comment-card">comment1</div>
-                <div class="comment-card">comment2</div>
-                <div class="comment-card">comment3</div>
+        <div id="page-container">
+            <div id="scroll-view" ref="scrollViewElem">
+                <div v-if="!hasDocumentLoaded">
+                    Loading...
+                </div>
+                <div id="viewer" ref="viewerElem"></div>
+                <CustomCommentSection />
             </div>
         </div>
+        <ContextMenu v-if="showContextMenu" :display="showContextMenu" :left="contextMenuPos.x" :top="contextMenuPos.y"
+            ref="contextMenuElem">
+            <div>
+                <span @click="deleteSelectedAnnotations"> 🗑️ </span> | <span @click="setCustomStyleAnnotation"> 🖌️ </span>
+                |
+                <span>3</span>
+            </div>
+        </ContextMenu>
     </div>
 </template>
 
 <script setup>
-// import webViewerCore from '@pdftron/webviewer/public/core/webviewer-core.min';
-import { onMounted, onUnmounted, ref, watch } from 'vue';
+import CustomCommentSection from './CustomCommentSection.vue';
+import ContextMenu from './ContextMenu.vue';
+import { onMounted, onUnmounted, ref, watch, reactive } from 'vue';
 import useDocViewer from '../composables/useDocViewer';
 import throttle from 'lodash.throttle';
 
@@ -49,7 +57,22 @@ const loadingErrMsg = ref('');
 const documentViewerInstance = ref(null);
 const scrollViewElem = ref(null);
 const viewerElem = ref(null);
-// const color = ref(null);
+const commentSectionElem = ref(null);
+const contextMenuElem = ref(null);
+const showContextMenu = ref(false);
+const contextMenuPos = reactive({
+    x: 0,
+    y: 0,
+});
+
+const openContextMenu = (evt) => {
+    showContextMenu.value = true;
+    contextMenuPos.x = evt.pageX || evt.clientX;
+    contextMenuPos.y = evt.pageY || evt.clientY;
+    console.log('openContextMenu', evt, showContextMenu.value, contextMenuPos)
+    // contextMenuElem.value.open(e);
+    // contextMenuElem.value.focus();
+}
 
 onMounted(async () => {
     try {
@@ -72,6 +95,7 @@ onUnmounted(() => {
     isWebViewerCoreReady.value = false;
     hasDocumentLoaded.value = false;
     documentViewerInstance.value = null;
+    showContextMenu.value = false;
     console.log('UNMOUNTEDD');
 })
 
@@ -86,8 +110,8 @@ watch(isWebViewerCoreReady, (currentVal) => {
 
         // Load your document
         // const pdfUrl = "https://pdftron.s3.amazonaws.com/downloads/pl/demo.pdf";
-        const pdfUrl = "https://pdftron.s3.amazonaws.com/downloads/pl/demo-annotated.pdf";
-        // const pdfUrl = "/sample.pdf";
+        // const pdfUrl = "https://pdftron.s3.amazonaws.com/downloads/pl/demo-annotated.pdf";
+        const pdfUrl = "/sample.pdf";
         documentViewer.loadDocument(pdfUrl, {
             l: null, onError: (err) => {
                 loadingErrMsg.value = err.message ?? err;
@@ -116,12 +140,17 @@ watch(isWebViewerCoreReady, (currentVal) => {
             console.log('DoubleClicked', event)
         })
         // mouse right up
-        documentViewer.addEventListener('mouseRightUp', (event) => {
-            console.log('Mouse right up event', event);
+        const displayMode = new Core.DisplayMode(documentViewer, window.Core.DisplayModes.Continuous)
+        documentViewer.addEventListener('mouseRightUp', function (event) {
+            // console.log(displayMode);
+            const coordinates = displayMode.windowToPage({ x: event.x, y: event.y }, documentViewer.getCurrentPage())
+            console.log('Mouse right up event', event, coordinates);
+            openContextMenu(event);
         });
         // native right click
         viewerElem.value.addEventListener('contextmenu', (event) => {
             event.preventDefault();
+            // const coordinates = documentViewer.getViewerCoordinatesFromMouseEvent(event);
             const annot = documentViewer.getAnnotationManager().getAnnotationByMouseEvent(event);
             console.log('native contextmenu::', annot, event);
         })
@@ -134,6 +163,9 @@ watch(isWebViewerCoreReady, (currentVal) => {
                 const annot = documentViewer.getAnnotationManager().getAnnotationByMouseEvent(evt);
                 if (annot) {
                     console.log(annot, annot, evt)
+                    const coordinates = displayMode.windowToPage({ x: evt.x, y: evt.y }, documentViewer.getCurrentPage())
+                    console.log('Mouse hover', evt, coordinates);
+                    openContextMenu(evt);
                 } else {
                     // Core.offHover(evt);
                 }
@@ -156,10 +188,12 @@ const {
     redoHandler,
     exportAnnotations,
     importAnnotations,
-    customIconAnnotation,
     deleteSelectedAnnotations,
     customStampTool,
-    generateThumbnail
+    generateThumbnail,
+    createHighlight,
+    measureDistanceTool,
+    calibrateDistance,
 } = useDocViewer(documentViewerInstance);
 
 </script>
@@ -175,34 +209,24 @@ const {
     font-weight: bold;
 }
 
+#page-container {
+    display: flex;
+}
+
 #scroll-view {
     display: flex;
+
     bottom: 0;
     height: 500px;
+    padding: 10px;
     width: 100%;
     overflow: auto;
     background-color: lightgray;
 }
 
 #viewer {
-    /* border: 1px solid red; */
+    flex: none;
     margin: auto;
-}
-
-#comment-section {
-    padding: 10px;
-    width: 30%
-}
-
-.comment-card {
-    background-color: white;
-    color: black;
-    padding: 10px;
-    border-radius: 1rem;
-    margin-bottom: 4px;
-    position: relative;
-    top: 328px;
-    /* left: 36px; */
 }
 
 .error-section {

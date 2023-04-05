@@ -12,7 +12,7 @@ const showNpmWebViewer = ref(false);
 <template>
   <!-- <button @click="() => showIcons = !showIcons">{{ showIcons ? 'Hide' : 'Show' }} Icons</button> -->
   <!-- <button @click="() => showCustomWebViewer = !showCustomWebViewer">{{ showCustomWebViewer ? 'Hide' : 'Show' }}
-          CustomWebViewer</button> -->
+                              CustomWebViewer</button> -->
   <button @click="() => showNpmWebViewer = !showNpmWebViewer">{{ showNpmWebViewer ? 'Hide' : 'Show' }}
     NPM customWebViewer</button>
   <div v-if="showIcons">

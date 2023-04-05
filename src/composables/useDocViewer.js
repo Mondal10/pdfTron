@@ -106,47 +106,24 @@ export default function useDocViewer(documentViewerInstance) {
     annotationHistory.redo();
   };
 
-  const customIconAnnotation = async () => {
+  const createStampIcon = async (x, y, pageNum) => {
     const res = await fetch('/vite.svg'); // Include custom headers as necessary
     const imageBlob = await res.blob();
     const reader = new FileReader();
     reader.onloadend = async () => {
       const annot = new Core.Annotations.StampAnnotation({
-        PageNumber: documentViewerInstance.value.getCurrentPage(),
-        X: 100,
-        Y: 400,
+        PageNumber: pageNum,
+        X: x,
+        Y: y,
         Width: 25,
         Height: 25,
       });
-      annot.cursor = 'crosshair';
-
-      console.log('stamp', annot);
 
       const base64data = reader.result;
       await annot.setImageData(base64data, { keepAsSVG: true }); // Base64 URL or SVG, default is png
       annot.NoZoom = true;
       annot.NoRotate = true;
       annot.disableRotationControl();
-      console.log('annot', annot);
-      // annot.NoResize = true;
-      // annot.Locked = true; // No rotate does not work
-      // annot.NoMove = false;
-
-      // documentViewerInstance.value.on('click', (event) => {
-      //   // Todo: Refactor later
-      //   // const viewerElem = document.getElementById('viewer');
-      //   // annot.X = event.x - viewerElem.offsetLeft;
-      //   // annot.Y = event.y - viewerElem.offsetTop;
-      //   annot.X = event.x;
-      //   annot.Y = event.y;
-      //   documentViewerInstance.value
-      //     .getAnnotationManager()
-      //     .addAnnotation(annot);
-      //   // console.log('CLICKED', event, annot.getMouseLocation(event));
-      //   documentViewerInstance.value
-      //     .getAnnotationManager()
-      //     .redrawAnnotation(annot);
-      // });
 
       documentViewerInstance.value.getAnnotationManager().addAnnotation(annot);
       documentViewerInstance.value
@@ -162,15 +139,17 @@ export default function useDocViewer(documentViewerInstance) {
     annotationManager.deleteAnnotation(selectedAnnotations());
   };
 
-  // Dummy
-  const customStampTool = (e) => {
-    console.clear();
-    console.log('SELECTED ANNOTATIONS', selectedAnnotations());
+  const customStampTool = () => {
     const stampTool = new Core.Tools.StampCreateTool(
       documentViewerInstance.value
     );
-    stampTool.ACCEPTED_IMAGE_TYPES = 'svg';
-    console.log('customStampTool', stampTool, e, stampTool.getMouseLocation(e));
+    stampTool.mouseLeftDown = function (event) {
+      console.log('stampTool', this, this.pageCoordinates[1]);
+      const pagePoint = this.pageCoordinates[1];
+      const pageNumber = pagePoint.pageNumber;
+      createStampIcon(pagePoint.x, pagePoint.y, pageNumber);
+    };
+    documentViewerInstance.value.setToolMode(stampTool);
   };
 
   const generateThumbnail = () => {
@@ -179,6 +158,59 @@ export default function useDocViewer(documentViewerInstance) {
     doc.loadThumbnail(pageNum, (thumbnail) => {
       // thumbnail is a HTMLCanvasElement or HTMLImageElement
       console.log(`Thumbnail generated for page ${pageNum}`, thumbnail);
+    });
+  };
+
+  const createHighlight = () => {
+    documentViewerInstance.value.setToolMode(
+      documentViewerInstance.value.getTool(
+        window.Core.Tools.ToolNames.HIGHLIGHT
+      )
+    );
+  };
+
+  const measureDistanceTool = () => {
+    const distanceMeasureTool = documentViewerInstance.value.getTool(
+      window.Core.Tools.ToolNames.DISTANCE_MEASUREMENT
+    );
+    documentViewerInstance.value.setToolMode(distanceMeasureTool);
+    distanceMeasureTool.setStyles({
+      // value of Scale is an array that is consisted of two arrays
+      // the first element in each array is the scale ratio and the second element is the unit.
+      // valid units are: mm, cm, m, km, mi, yd, ft, in and pt
+      // the following array means that for the annotations created by the distance measurement tool, 0.25 inches on the document is equal to 1 inch in the real world
+      Scale: [
+        [0.25, 'in'],
+        [1, 'in'],
+      ],
+
+      // value of Precision is a number that means how many decimal places the calculated value should have
+      Precision: 0.001,
+    });
+  };
+
+  const calibrateDistance = () => {
+    const annotationManager =
+      documentViewerInstance.value.getAnnotationManager();
+    const annotations = annotationManager.getAnnotationsList();
+    const measurementAnnotations = annotations.filter(
+      (annotation) => annotation.Measure
+    );
+
+    measurementAnnotations.forEach((annotation) => {
+      annotationManager.setAnnotationStyles(annotation, {
+        // value of Scale is an array that is consisted of two arrays
+        // the first element in each array is the scale ratio and the second element is the unit.
+        // valid units are: mm, cm, m, km, mi, yd, ft, in and pt
+        // the following array means that for the annotations created by the distance measurement tool, 0.25 inches on the document is equal to 1 inch in the real world
+        Scale: [
+          [0.25, 'in'],
+          [2, 'in'],
+        ],
+
+        // value of Precision is a number that means how many decimal places the calculated value should have
+        Precision: 0.1,
+      });
     });
   };
 
@@ -194,9 +226,11 @@ export default function useDocViewer(documentViewerInstance) {
     redoHandler,
     exportAnnotations,
     importAnnotations,
-    customIconAnnotation,
     deleteSelectedAnnotations,
     customStampTool,
     generateThumbnail,
+    createHighlight,
+    measureDistanceTool,
+    calibrateDistance,
   };
 }
