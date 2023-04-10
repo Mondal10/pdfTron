@@ -113,8 +113,8 @@ export default function useDocViewer(documentViewerInstance) {
     reader.onloadend = async () => {
       const annot = new Core.Annotations.StampAnnotation({
         PageNumber: pageNum,
-        X: x,
-        Y: y,
+        X: x - 20,
+        Y: y - 20,
         Width: 25,
         Height: 25,
       });
@@ -157,23 +157,68 @@ export default function useDocViewer(documentViewerInstance) {
     const pageNum = documentViewerInstance.value.getCurrentPage();
     doc.loadThumbnail(pageNum, (thumbnail) => {
       // thumbnail is a HTMLCanvasElement or HTMLImageElement
-      console.log(`Thumbnail generated for page ${pageNum}`, thumbnail);
+      console.log(
+        `Thumbnail generated for page ${pageNum}`,
+        thumbnail,
+        thumbnail.toDataURL('image/jpeg')
+      );
     });
   };
 
   const createHighlight = () => {
-    documentViewerInstance.value.setToolMode(
-      documentViewerInstance.value.getTool(
-        window.Core.Tools.ToolNames.HIGHLIGHT
-      )
+    const { Tools } = window.Core;
+    const annotationManager =
+      documentViewerInstance.value.getAnnotationManager();
+    const highlightMouseUp =
+      Tools.TextHighlightCreateTool.prototype.mouseLeftUp;
+    const highlightTool = documentViewerInstance.value.getTool(
+      window.Core.Tools.ToolNames.HIGHLIGHT
     );
+
+    Tools.TextHighlightCreateTool.prototype.mouseLeftUp = function (event) {
+      if (this.annotation) {
+        const { pageNumber, x, y } = this.pageCoordinates[1];
+
+        const currentPageHeight =
+          documentViewerInstance.value.getPageHeight(pageNumber);
+        const currentZoomLevel = documentViewerInstance.value.getZoomLevel();
+        // console.log(
+        //   'highlightTool mouseLeftUp',
+        //   this.annotation,
+        //   this.annotation.Id,
+        //   this.annotation.Height,
+        //   this.pageCoordinates[1],
+        //   currentPageHeight,
+        //   event.y,
+        //   currentZoomLevel
+        // );
+
+        const localComments = JSON.parse(
+          localStorage.getItem('comments') ?? '[]'
+        );
+        localComments.push({
+          id: this.annotation.Id,
+          pos: this.pageCoordinates[1],
+          highlightHeight: this.annotation.Height,
+          pageHeight: currentPageHeight,
+          zoomLevel: currentZoomLevel,
+        });
+        localStorage.setItem('comments', JSON.stringify(localComments));
+
+        this.annotation.StrokeColor = new Core.Annotations.Color(0, 255, 255);
+        annotationManager.redrawAnnotation(this.annotation); // need to redraw the annotation inside the tool so that it's updated right away.
+      }
+      highlightMouseUp.apply(this, arguments);
+    };
+
+    documentViewerInstance.value.setToolMode(highlightTool);
   };
 
   const measureDistanceTool = () => {
     const distanceMeasureTool = documentViewerInstance.value.getTool(
       window.Core.Tools.ToolNames.DISTANCE_MEASUREMENT
     );
-    documentViewerInstance.value.setToolMode(distanceMeasureTool);
+    // distanceMeasureTool.setSnapMode(1);
     distanceMeasureTool.setStyles({
       // value of Scale is an array that is consisted of two arrays
       // the first element in each array is the scale ratio and the second element is the unit.
@@ -187,6 +232,7 @@ export default function useDocViewer(documentViewerInstance) {
       // value of Precision is a number that means how many decimal places the calculated value should have
       Precision: 0.001,
     });
+    documentViewerInstance.value.setToolMode(distanceMeasureTool);
   };
 
   const calibrateDistance = () => {

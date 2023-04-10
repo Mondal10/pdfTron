@@ -12,7 +12,7 @@ const showNpmWebViewer = ref(false);
 <template>
   <!-- <button @click="() => showIcons = !showIcons">{{ showIcons ? 'Hide' : 'Show' }} Icons</button> -->
   <!-- <button @click="() => showCustomWebViewer = !showCustomWebViewer">{{ showCustomWebViewer ? 'Hide' : 'Show' }}
-                              CustomWebViewer</button> -->
+                                                                CustomWebViewer</button> -->
   <button @click="() => showNpmWebViewer = !showNpmWebViewer">{{ showNpmWebViewer ? 'Hide' : 'Show' }}
     NPM customWebViewer</button>
   <div v-if="showIcons">
@@ -25,7 +25,26 @@ const showNpmWebViewer = ref(false);
   </div>
   <hr>
   <CustomWebViewer v-if="showCustomWebViewer" />
-  <NpmWebViewer v-if="showNpmWebViewer" />
+  <NpmWebViewer v-if="showNpmWebViewer" :presetTools="[]" :showAllTools="true" />
+  <NpmWebViewer v-if="showNpmWebViewer" :presetTools="[
+    'zoomIn',
+    'zoomOut',
+    'rectangle',
+    'ellipse',
+    'line'
+  ]" />
+  <NpmWebViewer v-if="showNpmWebViewer" :presetTools="[
+    'ellipse',
+    'highlight',
+    'stamp',
+    'exportAnnotation',
+    'importAnnotation'
+  ]" />
+  <NpmWebViewer v-if="showNpmWebViewer" :presetTools="[
+    'undo',
+    'redo',
+    'measureDistance',
+  ]" />
 </template>
 
 <style scoped>

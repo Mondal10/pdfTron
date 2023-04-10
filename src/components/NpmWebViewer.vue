@@ -2,24 +2,8 @@
     <div>
         <div class="title">This is a custom NPM PDF tron</div>
         <div id="header">
-            <button id="zoom-out-button" @click="zoomOut" :disabled="!hasDocumentLoaded">🔍 zoom out</button>
-            <button id="zoom-in-button" @click="zoomIn" :disabled="!hasDocumentLoaded">🔍 zoom in</button>
-            <button id="create-rectangle" @click="createRectangle" :disabled="!hasDocumentLoaded">☐ Rectangle</button>
-            <button id="set-color" @click="setCustomStyleAnnotation" :disabled="!hasDocumentLoaded">
-                setCustomStyle</button>
-            <button id="create-ellipse" @click="createEllipse" :disabled="!hasDocumentLoaded">Ellipse</button>
-            <button id="create-line" @click="createLine" :disabled="!hasDocumentLoaded">Line</button>
-            <button @click="createHighlight" :disabled="!hasDocumentLoaded">Highlight Text</button>
-            <button id="select" @click="selectTool" :disabled="!hasDocumentLoaded">🤚 Select</button>
-            <button @click="undoHandler">undo</button>
-            <button @click="redoHandler">redo</button>
-            <button @click="exportAnnotations">export annotations</button>
-            <button @click="importAnnotations">import annotations</button>
-            <button @click="customStampTool" :disabled="!hasDocumentLoaded"> custom stamp tool</button>
-            <button @click="deleteSelectedAnnotations">delete selected annotations</button>
-            <button @click="generateThumbnail" :disabled="!hasDocumentLoaded">generate thumbnail</button>
-            <button @click="measureDistanceTool" :disabled="!hasDocumentLoaded">measure distance</button>
-            <button @click="calibrateDistance" :disabled="!hasDocumentLoaded">calibrate distance</button>
+            <button v-for="tool in getFilteredTools" @click="tool.method">{{ tool.label }}</button>
+            <button @click="clearLocalStorage">🗑️ localstorage</button>
         </div>
         <div v-if="loadingErrMsg" class="error-section">
             {{ loadingErrMsg }}
@@ -30,7 +14,7 @@
                     Loading...
                 </div>
                 <div id="viewer" ref="viewerElem"></div>
-                <CustomCommentSection />
+                <CustomCommentSection :selectedHighlightAnnot="selectedHighlightAnnot" />
             </div>
         </div>
         <ContextMenu v-if="showContextMenu" :display="showContextMenu" :left="contextMenuPos.x" :top="contextMenuPos.y"
@@ -47,7 +31,7 @@
 <script setup>
 import CustomCommentSection from './CustomCommentSection.vue';
 import ContextMenu from './ContextMenu.vue';
-import { onMounted, onUnmounted, ref, watch, reactive } from 'vue';
+import { onMounted, onUnmounted, ref, watch, reactive, computed } from 'vue';
 import useDocViewer from '../composables/useDocViewer';
 import throttle from 'lodash.throttle';
 
@@ -74,14 +58,32 @@ const openContextMenu = (evt) => {
     // contextMenuElem.value.focus();
 }
 
+const clearLocalStorage = () => {
+    localStorage.clear();
+}
+
+const selectedHighlightAnnot = ref(null)
+
+const props = defineProps({
+    presetTools: { type: Array, default: [] },
+    showAllTools: {
+        type: Boolean,
+        default: false,
+    },
+})
+
 onMounted(async () => {
     try {
         window?.Core && (isWebViewerCoreReady.value = true);
         if (!window?.Core) {
-            await import('@pdftron/webviewer/public/core/webviewer-core.min');
-            // await import { getInstance } from '@pdftron/webviewer'
-            // console.log('webViewerCore::', window.Core);
-            Core.setWorkerPath('/webviewer/core');
+            // await import('@pdftron/webviewer/public/core/webviewer-core.min');
+            // Core.setWorkerPath('/webviewer/core');
+
+            // CDN hosted
+            await import('https://cdn.jsdelivr.net/gh/sensehawk/cdn/pdftron/webviewer-core.min.js');
+            Core.setWorkerPath('https://cdn.jsdelivr.net/gh/sensehawk/cdn/pdftron/');
+            Core.setLocalWorkerPath('/webviewer/core');
+            // Core.setLocalWorkerPath('/local_modules/pdftron');
             // Todo: Find a better way as this will not work for prod-build
             // Core.setWorkerPath('../../node_modules/@pdftron/webviewer/public/core');
             isWebViewerCoreReady.value = true;
@@ -102,6 +104,7 @@ onUnmounted(() => {
 watch(isWebViewerCoreReady, (currentVal) => {
     console.log(`isWebViewerCoreReady is ${currentVal}`)
     if (currentVal) {
+        // window.Core.enableFullPDF();
         const documentViewer = new Core.DocumentViewer();
 
         // Hook up the DocumentViewer object to your own elements
@@ -112,6 +115,7 @@ watch(isWebViewerCoreReady, (currentVal) => {
         // const pdfUrl = "https://pdftron.s3.amazonaws.com/downloads/pl/demo.pdf";
         // const pdfUrl = "https://pdftron.s3.amazonaws.com/downloads/pl/demo-annotated.pdf";
         const pdfUrl = "/sample.pdf";
+        // const pdfUrl = "/Plan.pdf";
         documentViewer.loadDocument(pdfUrl, {
             l: null, onError: (err) => {
                 loadingErrMsg.value = err.message ?? err;
@@ -132,12 +136,18 @@ watch(isWebViewerCoreReady, (currentVal) => {
         });
 
         // Normal left click
-        documentViewer.addEventListener('click', (event) => {
-            console.log('Clicked', event)
+        documentViewer.addEventListener('click', function (event) {
+            const annot = documentViewer.getAnnotationManager().getAnnotationByMouseEvent(event);
+            if (annot) {
+                console.log('Clicked:::', event, this.id, annot.Id)
+                selectedHighlightAnnot.value = (annot.Id);
+            } else {
+                selectedHighlightAnnot.value = null;
+            }
         })
         // Double click
         documentViewer.addEventListener('dblClick', (event) => {
-            console.log('DoubleClicked', event)
+            console.log('DoubleClicked:::', event)
         })
         // mouse right up
         const displayMode = new Core.DisplayMode(documentViewer, window.Core.DisplayModes.Continuous)
@@ -165,7 +175,7 @@ watch(isWebViewerCoreReady, (currentVal) => {
                     console.log(annot, annot, evt)
                     const coordinates = displayMode.windowToPage({ x: evt.x, y: evt.y }, documentViewer.getCurrentPage())
                     console.log('Mouse hover', evt, coordinates);
-                    openContextMenu(evt);
+                    // openContextMenu(evt);
                 } else {
                     // Core.offHover(evt);
                 }
@@ -195,6 +205,73 @@ const {
     measureDistanceTool,
     calibrateDistance,
 } = useDocViewer(documentViewerInstance);
+
+const toolMapper = {
+    zoomIn: {
+        method: zoomIn,
+        label: '🔍 zoom in'
+    },
+    zoomOut: {
+        method: zoomOut,
+        label: '🔍 zoom out'
+    },
+    rectangle: {
+        method: createRectangle,
+        label: '☐ Rectangle'
+    },
+    customStyle: {
+        method: setCustomStyleAnnotation,
+        label: 'chagne stroke colour'
+    },
+    line: {
+        method: createLine,
+        label: 'Line'
+    },
+    ellipse: {
+        method: createEllipse,
+        label: 'Ellipse'
+    },
+    select: {
+        method: selectTool,
+        label: '🤚 Select'
+    },
+    undo: {
+        method: undoHandler,
+        label: 'Undo',
+    },
+    redo: {
+        method: redoHandler,
+        label: 'Redo',
+    },
+    exportAnnotation: {
+        method: exportAnnotations,
+        label: 'Export Annotation',
+    },
+    importAnnotation: {
+        method: importAnnotations,
+        label: 'Import Annotation',
+    },
+    stamp: {
+        method: customStampTool,
+        label: 'Icon'
+    },
+    highlight: {
+        method: createHighlight,
+        label: 'Highlight',
+    },
+    measureDistance: {
+        method: measureDistanceTool,
+        label: 'Measure Distance',
+    },
+    calibrateDistance: {
+        method: calibrateDistance,
+        label: 'Calibrate Distance',
+    }
+}
+
+const getFilteredTools = computed(() =>
+    props.showAllTools ? toolMapper : props.presetTools.map(toolName => toolMapper[toolName])
+);
 
 </script>
 

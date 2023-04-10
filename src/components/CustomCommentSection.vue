@@ -1,38 +1,41 @@
 <template>
     <div id="comment-section">
-        <div class="comment-card">comment1</div>
-        <div class="comment-card">comment2</div>
-        <div class="comment-card">comment3</div>
-        <div class="comment-card top-300">comment4</div>
+        <div v-for="comment in localComments" :style="{ top: `${calcTopPx(comment)}px` }" class="comment-card"
+            :class="{ selected: comment.id === selectedHighlightAnnot }" :key="comment.id">
+            {{
+                `${comment.id}-${comment.pos.y} comment` }}</div>
     </div>
 </template>
 
 <script setup>
+import { computed } from 'vue';
+defineProps({
+    selectedHighlightAnnot: String,
+})
+
+
+const localComments = computed(() => JSON.parse(localStorage.getItem('comments') ?? '[]'));
+const calcTopPx = (comment) => comment?.pos && (comment.pageHeight * (comment.pos.pageNumber - 1)) + (comment.pos.y - comment.highlightHeight);
+
 
 </script>
 
 <style scoped>
 #comment-section {
-    border: 1px solid blue;
-
-    /* overflow-y: auto; */
-    padding: 10px;
     min-width: 30%;
-    /* height: 500px; */
 }
 
 .comment-card {
     background-color: white;
     color: black;
-    padding: 10px;
+    padding: 5px;
     border-radius: 1rem;
     margin-bottom: 4px;
     position: relative;
-    /* top: 328px; */
-    /* left: 36px; */
+    font-size: 12px;
 }
 
-.top-300 {
-    top: 300px;
+.selected {
+    border: 2px solid tomato;
 }
 </style>
