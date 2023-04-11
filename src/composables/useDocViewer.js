@@ -1,3 +1,12 @@
+import { saveAs } from 'file-saver';
+
+/**
+ * create an array containing 1…N
+ * @param {Number} count
+ */
+const createArrayFromCount = (count) =>
+  Array.from({ length: count }, (_, i) => i + 1);
+
 export default function useDocViewer(documentViewerInstance) {
   const zoomOut = () => {
     documentViewerInstance.value.zoomTo(
@@ -20,6 +29,7 @@ export default function useDocViewer(documentViewerInstance) {
     rectTool.setStyles({
       StrokeColor: new Core.Annotations.Color(66, 184, 131, 1),
       StrokeThickness: 5,
+      FillColor: null, // text extractor has fill colour
     });
     documentViewerInstance.value.setToolMode(rectTool);
     console.log(
@@ -185,12 +195,16 @@ export default function useDocViewer(documentViewerInstance) {
         // console.log(
         //   'highlightTool mouseLeftUp',
         //   this.annotation,
-        //   this.annotation.Id,
+        //   this.annotation.Id
+        // );
+        // console.log(
         //   this.annotation.Height,
         //   this.pageCoordinates[1],
         //   currentPageHeight,
         //   event.y,
-        //   currentZoomLevel
+        //   // currentZoomLevel,
+        //   currentPageHeight * (this.pageCoordinates[1].pageNumber - 1) +
+        //     (this.pageCoordinates[1].y - this.annotation.Height)
         // );
 
         const localComments = JSON.parse(
@@ -260,6 +274,107 @@ export default function useDocViewer(documentViewerInstance) {
     });
   };
 
+  const extractText = async () => {
+    await Core.PDFNet.initialize();
+    const doc = await documentViewerInstance.value.getDocument().getPDFDoc();
+    const annotationManager =
+      documentViewerInstance.value.getAnnotationManager();
+    // export annotations from the document
+    const annots = `<?xml version="1.0" encoding="UTF-8" ?><xfdf xmlns="http://ns.adobe.com/xfdf/" xml:space="preserve"><pdf-info xmlns="http://www.pdftron.com/pdfinfo" version="2" import-version="4" /><fields /><annots><square page="0" rect="40,705.850,307.690,770.460" color="#42B883" flags="print" name="370644b2-a586-15c8-fcab-eb14c97a9438" subject="Rectangle" date="D:20230411194404+05'30'" creationdate="D:20230411194402+05'30'"/><square page="0" rect="64.620,582.770,398.460,642.770" color="#42B883" flags="print" name="9e890585-9574-4d6b-1fbc-07a3522e1372" subject="Rectangle" date="D:20230411194540+05'30'" creationdate="D:20230411194538+05'30'"/></annots><pages><defmtx matrix="1,0,0,-1,0,792" /></pages></xfdf>`;
+    annotationManager.importAnnotations(annots);
+    // Run PDFNet methods with memory management
+    await Core.PDFNet.runWithCleanup(async () => {
+      // lock the document before a write operation
+      // runWithCleanup will auto unlock when complete
+      doc.lock();
+      // import annotations to PDFNet
+      const fdf_doc = await Core.PDFNet.FDFDoc.createFromXFDF(annots);
+      await doc.fdfUpdate(fdf_doc);
+      const page = await doc.getPage(1);
+      const rect = await page.getCropBox();
+      const titleAnnot = await page.getAnnot(0);
+      const descAnnot = await page.getAnnot(1);
+      console.log(page, rect);
+      const te = await Core.PDFNet.TextExtractor.create();
+      te.begin(page, rect);
+      const titleText = await te.getTextUnderAnnot(titleAnnot);
+      const descText = await te.getTextUnderAnnot(descAnnot);
+      console.log({ titleText, descText });
+    });
+  };
+
+  const extractPages = async (pagesToExtract) => {
+    const doc = documentViewerInstance.value.getDocument();
+    const annotationManager =
+      documentViewerInstance.value.getAnnotationManager();
+
+    // only include annotations on the pages to extract
+    const annotList = annotationManager
+      .getAnnotationsList()
+      .filter((annot) => pagesToExtract.indexOf(annot.PageNumber) > -1);
+    const xfdfString = await annotationManager.exportAnnotations({ annotList });
+    const data = await doc.extractPages(pagesToExtract, xfdfString);
+    const arr = new Uint8Array(data);
+
+    //optionally save the blob to a file or upload to a server
+    const blob = new Blob([arr], { type: 'application/pdf' });
+    console.log('blob', blob, data);
+    saveAs(blob, 'extracted.pdf');
+  };
+
+  const downloadPDF = async () => {
+    const totalPages = documentViewerInstance.value.getPageCount();
+    const pagesArr = createArrayFromCount(totalPages);
+    pagesArr.length && extractPages(pagesArr);
+  };
+
+  const mergePages = () => {
+    // array of url of PDFs to merge
+    const urls = [
+      // 'https://pdftron.s3.amazonaws.com/downloads/pl/demo-annotated.pdf',
+      // 'https://pdftron.s3.amazonaws.com/downloads/pl/Cheetahs.pdf',
+      // 'https://pdftron.s3.amazonaws.com/downloads/pl/magazine-short.pdf',
+      '/sample.pdf',
+      '/Plan.pdf',
+    ];
+
+    // recursive function with promise
+    function mergeDocuments(urlArray, nextCount = 1, doc = null) {
+      return new Promise(async function (resolve, reject) {
+        if (!doc) {
+          doc = await Core.createDocument(urlArray[0]);
+        }
+        const newDoc = await Core.createDocument(urlArray[nextCount]);
+        const newDocPageCount = newDoc.getPageCount();
+
+        // create an array containing 1…N
+        const pages = createArrayFromCount(newDocPageCount);
+        const pageIndexToInsert = doc.getPageCount() + 1;
+        // in this example doc.getPageCount() returns 3
+
+        doc.insertPages(newDoc, pages, pageIndexToInsert).then((result) =>
+          resolve({
+            next: urlArray.length - 1 > nextCount,
+            doc: doc,
+          })
+        );
+        // end Promise
+      }).then((res) => {
+        return res.next
+          ? mergeDocuments(urlArray, nextCount + 1, res.doc)
+          : res.doc;
+      });
+    }
+
+    mergeDocuments(urls).then(async (mergedPdf) => {
+      // merged pdf, here you can download it using mergedPdf.getFileData
+      const data = await mergedPdf.getFileData();
+      const arr = new Uint8Array(data);
+      const blob = new Blob([arr], { type: 'application/pdf' });
+      saveAs(blob, 'merged.pdf');
+    });
+  };
+
   return {
     zoomOut,
     zoomIn,
@@ -278,5 +393,9 @@ export default function useDocViewer(documentViewerInstance) {
     createHighlight,
     measureDistanceTool,
     calibrateDistance,
+    extractText,
+    extractPages,
+    downloadPDF,
+    mergePages,
   };
 }

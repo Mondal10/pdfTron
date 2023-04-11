@@ -3,6 +3,7 @@
         <div class="title">This is a custom NPM PDF tron</div>
         <div id="header">
             <button v-for="tool in getFilteredTools" @click="tool.method">{{ tool.label }}</button>
+            <button @click="() => extractPages([2])">Extract Pages</button>
             <button @click="clearLocalStorage">🗑️ localstorage</button>
         </div>
         <div v-if="loadingErrMsg" class="error-section">
@@ -81,11 +82,15 @@ onMounted(async () => {
 
             // CDN hosted
             await import('https://cdn.jsdelivr.net/gh/sensehawk/cdn/pdftron/webviewer-core.min.js');
+            await import('https://cdn.jsdelivr.net/gh/sensehawk/cdn/pdftron/pdf/PDFNet.js');
+
             Core.setWorkerPath('https://cdn.jsdelivr.net/gh/sensehawk/cdn/pdftron/');
             Core.setLocalWorkerPath('/webviewer/core');
-            // Core.setLocalWorkerPath('/local_modules/pdftron');
-            // Todo: Find a better way as this will not work for prod-build
-            // Core.setWorkerPath('../../node_modules/@pdftron/webviewer/public/core');
+
+            // Core.forceBackendType('ems');
+            Core.setPDFWorkerPath('https://cdn.jsdelivr.net/gh/sensehawk/cdn/pdftron/core/pdf'); // path to web workers
+            Core.disableEmbeddedJavaScript(); // disabling pdf javascript
+
             isWebViewerCoreReady.value = true;
         }
     } catch (error) {
@@ -96,6 +101,7 @@ onMounted(async () => {
 onUnmounted(() => {
     isWebViewerCoreReady.value = false;
     hasDocumentLoaded.value = false;
+    documentViewerInstance.value.closeDocument();
     documentViewerInstance.value = null;
     showContextMenu.value = false;
     console.log('UNMOUNTEDD');
@@ -129,6 +135,7 @@ watch(isWebViewerCoreReady, (currentVal) => {
             1
         );
         Core.Annotations.SelectionModel.selectionOutlineThickness = 2;
+
         documentViewer.addEventListener('documentLoaded', async () => {
             // call methods relating to the loaded document
             console.log('PDF LOADED:::');
@@ -167,20 +174,20 @@ watch(isWebViewerCoreReady, (currentVal) => {
 
 
         // documentViewer.addEventListener(
-        viewerElem.value.addEventListener(
-            "mousemove",
-            throttle(evt => {
-                const annot = documentViewer.getAnnotationManager().getAnnotationByMouseEvent(evt);
-                if (annot) {
-                    console.log(annot, annot, evt)
-                    const coordinates = displayMode.windowToPage({ x: evt.x, y: evt.y }, documentViewer.getCurrentPage())
-                    console.log('Mouse hover', evt, coordinates);
-                    // openContextMenu(evt);
-                } else {
-                    // Core.offHover(evt);
-                }
-            }, 700)
-        );
+        // viewerElem.value.addEventListener(
+        //     "mousemove",
+        //     throttle(evt => {
+        //         const annot = documentViewer.getAnnotationManager().getAnnotationByMouseEvent(evt);
+        //         if (annot) {
+        //             console.log(annot, annot, evt)
+        //             const coordinates = displayMode.windowToPage({ x: evt.x, y: evt.y }, documentViewer.getCurrentPage())
+        //             console.log('Mouse hover', evt, coordinates);
+        //             // openContextMenu(evt);
+        //         } else {
+        //             // Core.offHover(evt);
+        //         }
+        //     }, 700)
+        // );
 
         documentViewerInstance.value = documentViewer;
     }
@@ -204,6 +211,10 @@ const {
     createHighlight,
     measureDistanceTool,
     calibrateDistance,
+    extractText,
+    extractPages,
+    downloadPDF,
+    mergePages,
 } = useDocViewer(documentViewerInstance);
 
 const toolMapper = {
@@ -266,6 +277,22 @@ const toolMapper = {
     calibrateDistance: {
         method: calibrateDistance,
         label: 'Calibrate Distance',
+    },
+    extractText: {
+        method: extractText,
+        label: 'Extract Text',
+    },
+    // extractPages: {
+    //     method: extractPages,
+    //     label: 'Extract Pages',
+    // },
+    downloadPDF: {
+        method: downloadPDF,
+        label: 'Download PDF',
+    },
+    mergePages: {
+        method: mergePages,
+        label: 'Merge Pages'
     }
 }
 
