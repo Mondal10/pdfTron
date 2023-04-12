@@ -1,4 +1,4 @@
-import { saveAs } from 'file-saver';
+// import { saveAs } from 'file-saver';
 
 /**
  * create an array containing 1…N
@@ -6,6 +6,40 @@ import { saveAs } from 'file-saver';
  */
 const createArrayFromCount = (count) =>
   Array.from({ length: count }, (_, i) => i + 1);
+
+/**
+ * download blob data to pdf
+ * @param {Blob} blob
+ * @param {String} name
+ * @returns
+ */
+function downloadBlob(blob, name = 'file.pdf') {
+  if (window.navigator && window.navigator.msSaveOrOpenBlob)
+    return window.navigator.msSaveOrOpenBlob(blob);
+
+  // For other browsers:
+  // Create a link pointing to the ObjectURL containing the blob.
+  const data = window.URL.createObjectURL(blob);
+
+  const link = document.createElement('a');
+  link.href = data;
+  link.download = name;
+
+  // this is necessary as link.click() does not work on the latest firefox
+  link.dispatchEvent(
+    new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+    })
+  );
+
+  setTimeout(() => {
+    // For Firefox it is necessary to delay revoking the ObjectURL
+    window.URL.revokeObjectURL(data);
+    link.remove();
+  }, 100);
+}
 
 export default function useDocViewer(documentViewerInstance) {
   const zoomOut = () => {
@@ -319,7 +353,8 @@ export default function useDocViewer(documentViewerInstance) {
     //optionally save the blob to a file or upload to a server
     const blob = new Blob([arr], { type: 'application/pdf' });
     console.log('blob', blob, data);
-    saveAs(blob, 'extracted.pdf');
+    // saveAs(blob, 'extracted.pdf');
+    downloadBlob(blob, 'extracted.pdf');
   };
 
   const downloadPDF = async () => {
@@ -371,7 +406,8 @@ export default function useDocViewer(documentViewerInstance) {
       const data = await mergedPdf.getFileData();
       const arr = new Uint8Array(data);
       const blob = new Blob([arr], { type: 'application/pdf' });
-      saveAs(blob, 'merged.pdf');
+      // saveAs(blob, 'merged.pdf');
+      downloadBlob(blob, 'merged.pdf');
     });
   };
 
