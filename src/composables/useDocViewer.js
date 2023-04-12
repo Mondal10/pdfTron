@@ -411,6 +411,72 @@ export default function useDocViewer(documentViewerInstance) {
     });
   };
 
+  const diffPdf = async () => {
+    await Core.PDFNet.initialize();
+
+    const getDocument = async (url) => {
+      const newDoc = await Core.createDocument(url);
+      return await newDoc.getPDFDoc();
+    };
+
+    const [doc1, doc2] = await Promise.all([
+      getDocument(
+        'https://s3.amazonaws.com/pdftron/pdftron/example/test_doc_1.pdf'
+      ),
+      getDocument(
+        'https://s3.amazonaws.com/pdftron/pdftron/example/test_doc_2.pdf'
+      ),
+    ]);
+
+    const getPageArray = async (doc) => {
+      const arr = [];
+      const itr = await doc.getPageIterator(1);
+
+      for (itr; await itr.hasNext(); itr.next()) {
+        const page = await itr.current();
+        arr.push(page);
+      }
+
+      return arr;
+    };
+
+    const [doc1Pages, doc2Pages] = await Promise.all([
+      getPageArray(doc1),
+      getPageArray(doc2),
+    ]);
+
+    const newDoc = await Core.PDFNet.PDFDoc.create();
+    newDoc.lock();
+
+    // we'll loop over the doc with the most pages
+    const biggestLength = Math.max(doc1Pages.length, doc2Pages.length);
+
+    // we need to do the pages in order, so lets create a Promise chain
+    const chain = Promise.resolve();
+
+    for (let i = 0; i < biggestLength; i++) {
+      chain.then(async () => {
+        const page1 = doc1Pages[i];
+        const page2 = doc2Pages[i];
+
+        // handle the case where one document has more pages than the other
+        if (!page1) {
+          page1 = new Core.PDFNet.Page(0); // create a blank page
+        }
+        if (!page2) {
+          page2 = new Core.PDFNet.Page(0); // create a blank page
+        }
+        return newDoc.appendVisualDiff(page1, page2, null);
+      });
+    }
+
+    await chain; // wait for our chain to resolve
+    newDoc.unlock();
+
+    // display the document!
+    documentViewerInstance.value.loadDocument(newDoc);
+  };
+
   return {
     zoomOut,
     zoomIn,
@@ -433,5 +499,6 @@ export default function useDocViewer(documentViewerInstance) {
     extractPages,
     downloadPDF,
     mergePages,
+    diffPdf,
   };
 }

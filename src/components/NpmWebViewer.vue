@@ -215,6 +215,7 @@ const {
     extractPages,
     downloadPDF,
     mergePages,
+    diffPdf,
 } = useDocViewer(documentViewerInstance);
 
 const toolMapper = {
@@ -293,6 +294,10 @@ const toolMapper = {
     mergePages: {
         method: mergePages,
         label: 'Merge Pages'
+    },
+    diffPdf: {
+        method: diffPdf,
+        label: 'Diff PDF'
     }
 }
 
