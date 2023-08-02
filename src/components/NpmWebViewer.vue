@@ -3,7 +3,7 @@
         <div class="title">This is a custom NPM PDF tron</div>
         <div id="header">
             <button v-for="tool in getFilteredTools" @click="tool.method">{{ tool.label }}</button>
-            <button @click="() => extractPages([2])">Extract Pages</button>
+            <!-- <button @click="() => extractPages([2])">Extract Pages</button> -->
             <button @click="clearLocalStorage">🗑️ localstorage</button>
         </div>
         <div v-if="loadingErrMsg" class="error-section">
@@ -216,6 +216,9 @@ const {
     downloadPDF,
     mergePages,
     diffPdf,
+    createText,
+    textOpacity,
+    fillOpacity,
 } = useDocViewer(documentViewerInstance);
 
 const toolMapper = {
@@ -233,7 +236,7 @@ const toolMapper = {
     },
     customStyle: {
         method: setCustomStyleAnnotation,
-        label: 'chagne stroke colour'
+        label: 'change annot styles'
     },
     line: {
         method: createLine,
@@ -242,6 +245,18 @@ const toolMapper = {
     ellipse: {
         method: createEllipse,
         label: 'Ellipse'
+    },
+    text: {
+        method: createText,
+        label: 'Create Text'
+    },
+    textOpacity: {
+        method: textOpacity,
+        label: 'Set text opacity'
+    },
+    fillOpacity: {
+        method: fillOpacity,
+        label: 'Set fill opacity'
     },
     select: {
         method: selectTool,

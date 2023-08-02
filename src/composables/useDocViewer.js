@@ -42,6 +42,20 @@ function downloadBlob(blob, name = 'file.pdf') {
 }
 
 export default function useDocViewer(documentViewerInstance) {
+
+  /**
+   * Set annotations styles
+   * @param {Array} annotations array of annotations
+   * @param {Object} style style config object
+   */
+  const set_annotations_style = (annotations, style) => {
+    const annotation_manager = documentViewerInstance.value.getAnnotationManager();
+
+    annotations.forEach((annotation) => {
+      annotation_manager.setAnnotationStyles(annotation, style);
+    });
+  };
+
   const zoomOut = () => {
     documentViewerInstance.value.zoomTo(
       documentViewerInstance.value.getZoomLevel() - 0.25
@@ -118,6 +132,12 @@ export default function useDocViewer(documentViewerInstance) {
     );
   };
 
+  const createText = () => {
+    documentViewerInstance.value.setToolMode(
+      documentViewerInstance.value.getTool(window.Core.Tools.ToolNames.FREETEXT)
+    );
+  };
+
   const selectTool = (e) => {
     e.preventDefault();
     const editTool = documentViewerInstance.value.getTool(
@@ -135,6 +155,24 @@ export default function useDocViewer(documentViewerInstance) {
 
     return annotationManager.getSelectedAnnotations();
   };
+
+  const textOpacity = () => {
+    const annotations = selectedAnnotations();
+    set_annotations_style(annotations, {
+      TextColor: new Core.Annotations.Color(19, 209, 11, 0.4), // green with opacity 0.4
+      FontSize: '20pt',
+      StrokeThickness: 1,
+    });
+    console.log('AFTER text style,', annotations);
+  }
+
+  const fillOpacity = () => {
+    const annotations = selectedAnnotations();
+    set_annotations_style(annotations, {
+      FillColor: new Core.Annotations.Color(225, 24, 69, 0.2), // red with opacity 0.2
+    });
+    console.log('AFTER fill style,', annotations);
+  }
 
   const undoHandler = () => {
     const annotationHistory =
@@ -456,8 +494,8 @@ export default function useDocViewer(documentViewerInstance) {
 
     for (let i = 0; i < biggestLength; i++) {
       chain.then(async () => {
-        const page1 = doc1Pages[i];
-        const page2 = doc2Pages[i];
+        let page1 = doc1Pages[i];
+        let page2 = doc2Pages[i];
 
         // handle the case where one document has more pages than the other
         if (!page1) {
@@ -500,5 +538,8 @@ export default function useDocViewer(documentViewerInstance) {
     downloadPDF,
     mergePages,
     diffPdf,
+    createText,
+    textOpacity,
+    fillOpacity
   };
 }

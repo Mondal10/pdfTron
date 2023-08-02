@@ -18,19 +18,19 @@ const showPopup = ref(false);
   <button @click="() => showNpmWebViewer = !showNpmWebViewer">{{ showNpmWebViewer ? 'Hide' : 'Show' }}
     NPM customWebViewer</button>
   <button @click="() => showPopup = !showPopup">{{ showPopup ? 'Hide' : 'Show' }}
-  popup</button>
-<div v-if="showIcons">
-  <a href="https://vitejs.dev" target="_blank">
-    <img src="/vite.svg" class="logo" alt="Vite logo" />
-  </a>
-  <a href="https://vuejs.org/" target="_blank">
-    <img src="/vue.svg" class="logo vue" alt="Vue logo" />
-  </a>
-</div>
-<hr>
-<CustomWebViewer v-if="showCustomWebViewer" />
-<NpmWebViewer v-if="showNpmWebViewer" :presetTools="[]" :showAllTools="true" />
-<!-- <NpmWebViewer v-if="showNpmWebViewer" :presetTools="[
+    popup</button>
+  <div v-if="showIcons">
+    <a href="https://vitejs.dev" target="_blank">
+      <img src="/vite.svg" class="logo" alt="Vite logo" />
+    </a>
+    <a href="https://vuejs.org/" target="_blank">
+      <img src="/vue.svg" class="logo vue" alt="Vue logo" />
+    </a>
+  </div>
+  <hr>
+  <CustomWebViewer v-if="showCustomWebViewer" />
+  <NpmWebViewer v-if="showNpmWebViewer" :presetTools="[]" :showAllTools="true" />
+  <!-- <NpmWebViewer v-if="showNpmWebViewer" :presetTools="[
     'zoomIn',
     'zoomOut',
     'rectangle',
@@ -51,9 +51,16 @@ const showPopup = ref(false);
         ]" /> -->
   <div class="popup" v-if="showPopup">
     <NpmWebViewer :presetTools="[
-      'undo',
-      'redo',
-      'extractText',
+      // 'undo',
+      // 'redo',
+      'select',
+      'zoomIn',
+      'zoomOut',
+      'text',
+      'textOpacity',
+      'fillOpacity',
+      'customStyle',
+      // 'extractText',
     ]" />
   </div>
 </template>
